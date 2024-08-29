@@ -1,0 +1,10 @@
+<!-- app/templates/home.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="jumbotron text-center">
+    <h1>Welcome to Blockchain Land Registry</h1>
+    <p class="lead">A secure and transparent solution for land registration.</p>
+    <hr class="my-4">
+    <a class="btn btn-primary btn-lg" href="{{ url_for('register') }}" role="button">Get Started</a>
+</div>
+{% endblock %}
