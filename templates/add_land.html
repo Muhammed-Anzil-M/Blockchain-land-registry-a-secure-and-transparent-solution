@@ -1,0 +1,11 @@
+<!-- app/templates/home.html -->
+{% extends "base.html" %}
+{% block content %}
+<h2>Add New Land</h2>
+<form method="POST" action="{{ url_for('add_land') }}">
+    {{ form.hidden_tag() }}
+    {{ form.details.label }} {{ form.details() }}
+    {{ form.file_url.label }} {{ form.file_url() }}
+    {{ form.submit(class="btn btn-primary") }}
+</form>
+{% endblock %}

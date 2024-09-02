@@ -1,7 +1,7 @@
 from flask import Flask, render_template, url_for, flash, redirect, request
-from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_login import UserMixin, LoginManager, login_user, current_user, logout_user, login_required
+from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField
 from wtforms.validators import DataRequired, Email, EqualTo
@@ -16,6 +16,7 @@ bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
+
 # Models
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
@@ -24,13 +25,16 @@ class User(db.Model, UserMixin):
     password = db.Column(db.String(150), nullable=False)
     role = db.Column(db.String(50), nullable=False)  # 'buyer', 'seller', 'officer'
 
+
 class LandRecord(db.Model):
+    __tablename__ = 'landrecord'
     id = db.Column(db.Integer, primary_key=True)
     owner = db.Column(db.String(150), nullable=False)
     details = db.Column(db.Text, nullable=False)
     status = db.Column(db.String(50), default='Pending')  # 'Pending', 'Approved', 'Rejected'
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     file_url = db.Column(db.String(150), nullable=False)
+
 
 # Forms
 class RegistrationForm(FlaskForm):
@@ -41,25 +45,30 @@ class RegistrationForm(FlaskForm):
     role = SelectField('Role', choices=[('buyer', 'Buyer'), ('seller', 'Seller'), ('officer', 'Officer')])
     submit = SubmitField('Sign Up')
 
+
 class LoginForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
     submit = SubmitField('Login')
+
 
 class UploadForm(FlaskForm):
     details = TextAreaField('Land Details', validators=[DataRequired()])
     file_url = StringField('File URL', validators=[DataRequired()])
     submit = SubmitField('Upload')
 
+
 # Routes
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+
 @app.route('/')
 @app.route('/home')
 def home():
     return render_template('home.html', title='Home')
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -74,6 +83,7 @@ def login():
             flash('Login Unsuccessful. Please check email and password', 'danger')
     return render_template('login.html', title='Login', form=form)
 
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegistrationForm()
@@ -86,6 +96,7 @@ def register():
         return redirect(url_for('login'))
     return render_template('register.html', title='Register', form=form)
 
+
 @app.route('/logout')
 def logout():
     logout_user()
@@ -94,20 +105,40 @@ def logout():
 @app.route('/dashboard', methods=['GET', 'POST'])
 @login_required
 def dashboard():
-    if current_user.role == 'buyer' or current_user.role == 'seller':
-        form = UploadForm()
-        if form.validate_on_submit():
-            record = LandRecord(owner=current_user.username, details=form.details.data, file_url=form.file_url.data, user_id=current_user.id)
-            db.session.add(record)
-            db.session.commit()
-            flash('Land details uploaded successfully', 'success')
-            return redirect(url_for('dashboard'))
-        return render_template('upload.html', title='Upload Land Details', form=form)
-    elif current_user.role == 'officer':
-        records = LandRecord.query.filter_by(status='Pending').all()
-        return render_template('dashboard.html', title='Dashboard', records=records)
+    if current_user.role == 'officer':
+        # Government officers see all records
+        records = LandRecord.query.all()
+        return render_template('gov_dashboard.html', title='Available Land', records=records)
     else:
-        return redirect(url_for('home'))
+        # Regular users only see approved records
+        records = LandRecord.query.filter_by(status='Approved').all()
+        return render_template('dashboard.html', title='Available Land', records=records)
+
+@app.route('/sell', methods=['GET', 'POST'])
+@login_required
+def sell():
+    records = LandRecord.query.filter_by(owner=current_user.username).all()
+    return render_template('sell.html', title='Your Land Details', records=records)
+
+@app.route('/add_land', methods=['GET', 'POST'])
+@login_required
+def add_land():
+    form = UploadForm()
+    if form.validate_on_submit():
+        record = LandRecord(owner=current_user.username, details=form.details.data, file_url=form.file_url.data, user_id=current_user.id)
+        db.session.add(record)
+        db.session.commit()
+        flash('Land details added successfully', 'success')
+        return redirect(url_for('sell'))
+    return render_template('add_land.html', title='Add New Land', form=form)
+
+@app.route('/profile')
+@login_required
+def profile():
+    user = current_user
+    lands = LandRecord.query.filter_by(owner=current_user.username).all()
+    return render_template('profile.html', title='Your Profile', user=user, lands=lands)
+
 
 @app.route('/approve/<int:record_id>')
 @login_required
@@ -119,15 +150,21 @@ def approve(record_id):
         flash('Record approved', 'success')
     return redirect(url_for('dashboard'))
 
-@app.route('/reject/<int:record_id>')
+
+@app.route('/reject/<int:record_id>', methods=['POST'])
 @login_required
 def reject(record_id):
     if current_user.role == 'officer':
         record = LandRecord.query.get_or_404(record_id)
         record.status = 'Rejected'
+        comment = request.form.get('comment')
+        if comment:
+            record.comment = comment  # Assuming you have a comment field in your model
         db.session.commit()
-        flash('Record rejected', 'success')
+        flash('Record rejected', 'danger')
     return redirect(url_for('dashboard'))
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)

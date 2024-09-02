@@ -1,0 +1,69 @@
+<!-- app/templates/gov_dashboard.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mt-4">
+    <h2>{{ title }}</h2>
+
+    <div class="mt-4">
+        <h3>Pending Land Records</h3>
+        {% if records %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Owner</th>
+                        <th>Details</th>
+                        <th>File URL</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                        <tr>
+                            <td>{{ record.owner }}</td>
+                            <td>{{ record.details }}</td>
+                            <td><a href="{{ record.file_url }}" target="_blank">{{ record.file_url }}</a></td>
+                            <td>
+                                {% if record.status == 'Pending' %}
+                                    <a href="{{ url_for('approve', record_id=record.id) }}" class="btn btn-success btn-sm">Approve</a>
+                                    <!-- Button to open the rejection modal -->
+                                    <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectModal{{ record.id }}">Reject</button>
+
+                                    <!-- Modal for rejection -->
+                                    <div class="modal fade" id="rejectModal{{ record.id }}" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="rejectModalLabel">Reject Land Record</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <form method="POST" action="{{ url_for('reject', record_id=record.id) }}">
+                                                    <div class="modal-body">
+                                                        <div class="form-group">
+                                                            <label for="comment">Comment (Optional):</label>
+                                                            <textarea class="form-control" id="comment" name="comment" rows="3"></textarea>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                        <button type="submit" class="btn btn-danger">Reject</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <!-- Display status if not Pending -->
+                                    <span class="badge bg-{{ 'success' if record.status == 'Approved' else 'danger' }}">{{ record.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No pending land records at the moment.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
