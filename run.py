@@ -5,10 +5,12 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField
 from wtforms.validators import DataRequired, Email, EqualTo
+from datetime import datetime
+
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secrets.token_hex(16)'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/land_reg'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/land_registry'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -26,6 +28,19 @@ class User(db.Model, UserMixin):
     role = db.Column(db.String(50), nullable=False)  # 'buyer', 'seller', 'officer'
 
 
+class Request(db.Model):
+    __tablename__ = 'request'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    land_record_id = db.Column(db.Integer, db.ForeignKey('landrecord.id'), nullable=False)  # Corrected table name
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(50), default='Pending')
+
+    user = db.relationship('User', backref='requests', lazy=True)
+    land_record = db.relationship('LandRecord', backref='requests', lazy=True,
+                                  foreign_keys=[land_record_id])  # Explicitly specify the foreign key
+
+
 class LandRecord(db.Model):
     __tablename__ = 'landrecord'
     id = db.Column(db.Integer, primary_key=True)
@@ -34,10 +49,12 @@ class LandRecord(db.Model):
     status = db.Column(db.String(50), default='Pending')  # 'Pending', 'Approved', 'Rejected'
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     file_url = db.Column(db.String(150), nullable=False)
+    sellable = db.Column(db.Boolean, default=False)  # Add this line for the sellable column
 
 
 # Forms
 class RegistrationForm(FlaskForm):
+    __tablename__ = 'user'
     username = StringField('Username', validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
@@ -111,14 +128,9 @@ def dashboard():
         return render_template('gov_dashboard.html', title='Available Land', records=records)
     else:
         # Regular users only see approved records
-        records = LandRecord.query.filter_by(status='Approved').all()
+        records = LandRecord.query.filter_by(sellable=True).all()
         return render_template('dashboard.html', title='Available Land', records=records)
 
-@app.route('/sell', methods=['GET', 'POST'])
-@login_required
-def sell():
-    records = LandRecord.query.filter_by(owner=current_user.username).all()
-    return render_template('sell.html', title='Your Land Details', records=records)
 
 @app.route('/add_land', methods=['GET', 'POST'])
 @login_required
@@ -132,12 +144,22 @@ def add_land():
         return redirect(url_for('sell'))
     return render_template('add_land.html', title='Add New Land', form=form)
 
-@app.route('/profile')
+@app.route('/sell', methods=['GET', 'POST'])
 @login_required
-def profile():
-    user = current_user
-    lands = LandRecord.query.filter_by(owner=current_user.username).all()
-    return render_template('profile.html', title='Your Profile', user=user, lands=lands)
+def sell():
+    records = LandRecord.query.filter_by(owner=current_user.username).all()
+    return render_template('sell.html', title='Your Land Details', records=records)
+
+@app.route('/sell_land/<int:record_id>')
+@login_required
+def update_sellable_to_true(record_id):
+    record = LandRecord.query.get(record_id)
+    if record:
+        record.sellable = True
+        db.session.commit()
+        flash('Record approved', 'success')
+    return redirect(url_for('sell'))
+
 
 
 @app.route('/approve/<int:record_id>')
@@ -150,6 +172,24 @@ def approve(record_id):
         flash('Record approved', 'success')
     return redirect(url_for('dashboard'))
 
+@app.route('/create_request/<int:record_id>', methods=['POST'])
+@login_required
+def create_request(record_id):
+    land_record = LandRecord.query.get(record_id)
+    if land_record:
+        new_request = Request(user_id=current_user.id, land_record_id=record_id)
+        db.session.add(new_request)
+        db.session.commit()
+        flash('Request has been sent.', 'success')
+    return redirect(url_for('sell'))
+
+
+@app.route('/profile')
+@login_required
+def profile():
+    user = current_user
+    lands = LandRecord.query.filter_by(owner=current_user.username).all()
+    return render_template('profile.html', title='Your Profile', user=user, lands=lands)
 
 @app.route('/reject/<int:record_id>', methods=['POST'])
 @login_required
