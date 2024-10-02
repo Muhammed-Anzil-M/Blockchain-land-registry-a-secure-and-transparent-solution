@@ -6,11 +6,13 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField
 from wtforms.validators import DataRequired, Email, EqualTo
 from datetime import datetime
+import pymysql
+pymysql.install_as_MySQLdb()
 
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secrets.token_hex(16)'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/land_registry'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/land_reg'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -59,7 +61,7 @@ class RegistrationForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
     confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
-    role = SelectField('Role', choices=[('buyer', 'Buyer'), ('seller', 'Seller'), ('officer', 'Officer')])
+    role = SelectField('Role', choices=[('user', 'User'), ('officer', 'Officer')])
     submit = SubmitField('Sign Up')
 
 
@@ -129,7 +131,8 @@ def dashboard():
     else:
         # Regular users only see approved records
         records = LandRecord.query.filter_by(sellable=True).all()
-        return render_template('dashboard.html', title='Available Land', records=records)
+        user = current_user
+        return render_template('dashboard.html', title='Available Land',user=user, records=records)
 
 
 @app.route('/add_land', methods=['GET', 'POST'])
@@ -147,8 +150,16 @@ def add_land():
 @app.route('/sell', methods=['GET', 'POST'])
 @login_required
 def sell():
+    # Get all land records owned by the current user
     records = LandRecord.query.filter_by(owner=current_user.username).all()
-    return render_template('sell.html', title='Your Land Details', records=records)
+
+    # Get the land record IDs
+    record_ids = [record.id for record in records]
+
+    # Fetch requests that correspond to those land records
+    requests = Request.query.filter(Request.land_record_id.in_(record_ids)).all()
+
+    return render_template('sell.html', records=records, requests=requests)
 
 @app.route('/sell_land/<int:record_id>')
 @login_required
@@ -158,6 +169,17 @@ def update_sellable_to_true(record_id):
         record.sellable = True
         db.session.commit()
         flash('Record approved', 'success')
+    return redirect(url_for('sell'))
+
+
+@app.route('/sell_land/<int:record_id>/cancel')
+@login_required
+def update_sellable_to_false(record_id):
+    record = LandRecord.query.get(record_id)
+    if record:
+        record.sellable = False
+        db.session.commit()
+        flash('Sale cancelled', 'warning')
     return redirect(url_for('sell'))
 
 

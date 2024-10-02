@@ -5,32 +5,50 @@
 <div class="mt-4">
     <h2>{{ title }}</h2>
 
-    <div class="mt-4">
-        {% if records %}
-            <table class="table table-striped">
-                <thead>
+   <div class="mt-4">
+    {% if records %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Owner</th>
+                    <th>Details</th>
+                    <th>File URL</th>
+                    <th>Action</th>
+                    <th>Request Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
                     <tr>
-                        <th>Owner</th>
-                        <th>Details</th>
-                        <th>Status</th>
-                        <th>File URL</th>
+                        <td>{{ record.owner }}</td>
+                        <td>{{ record.details }}</td>
+                        <td><a href="{{ record.file_url }}" target="_blank">{{ record.file_url }}</a></td>
+                        {% if record.user_id != user.id %}
+                        <td>
+                            {% if not record.requests %}
+                                <form action="{{ url_for('create_request', record_id=record.id) }}" method="POST">
+                                    <button type="submit" class="btn btn-primary">Request</button>
+                                </form>
+                            {% else %}
+                                <button class="btn btn-secondary" disabled>Requested</button>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record.requests %}
+                                {{ record.requests[0].status }}
+                            {% else %}
+                                No requests
+                            {% endif %}
+                        </td>
+                        {% endif %}
                     </tr>
-                </thead>
-                <tbody>
-                    {% for record in records %}
-                        <tr>
-                            <td>{{ record.owner }}</td>
-                            <td>{{ record.details }}</td>
-                            <td>{{ record.status }}</td>
-                            <td><a href="{{ record.file_url }}" target="_blank">{{ record.file_url }}</a></td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <p>No land records available at the moment.</p>
-        {% endif %}
-    </div>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No land records available at the moment.</p>
+    {% endif %}
+</div>
 
 
 </div>

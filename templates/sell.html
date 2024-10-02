@@ -1,11 +1,60 @@
-<!-- app/templates/home.html -->
 {% extends "base.html" %}
+
 {% block content %}
-<h2>Your Land Details</h2>
-<ul>
-    {% for record in records %}
-        <li>{{ record.details }} - {{ record.status }}</li>
-    {% endfor %}
-</ul>
-<a href="{{ url_for('add_land') }}" class="btn btn-primary">Add Land</a>
+<div class="mt-4">
+    <h2>Your Land Details</h2>
+
+    <!-- List of land records with sell/cancel option for approved lands -->
+    <ul>
+        {% for record in records %}
+            <li>
+                {{ record.details }} - {{ record.status }}
+                {% if record.status == "Approved" %}
+                    {% if record.sellable %}
+                        <a href="{{ url_for('update_sellable_to_false', record_id=record.id) }}" class="btn btn-warning">Cancel Sale</a>
+                    {% else %}
+                        <a href="{{ url_for('update_sellable_to_true', record_id=record.id) }}" class="btn btn-success">Sell</a>
+                    {% endif %}
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+
+    <!-- Table of land records with request actions -->
+    {% if records %}
+        <table class="table table-striped mt-4">
+            <thead>
+                <tr>
+                    <th>Details</th>
+                    <th>Status</th>
+                    <th>Request Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                    <tr>
+                        <td>{{ record.details }}</td>
+                        <td>{{ record.status }}</td>
+                        <td>
+                            {% if requests %}
+                                <form action="{{ url_for('accept_request', request_id=requests.requests[0].id) }}" method="POST" style="display:inline;">
+                                    <button type="submit" class="btn btn-success">Accept</button>
+                                </form>
+                                <form action="{{ url_for('reject_request', request_id=requests.requests[0].id) }}" method="POST" style="display:inline;">
+                                    <button type="submit" class="btn btn-danger">Reject</button>
+                                </form>
+                            {% else %}
+                                No requests yet
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>You do not have any land records yet.</p>
+    {% endif %}
+
+    <a href="{{ url_for('add_land') }}" class="btn btn-primary mt-3">Add Land</a>
+</div>
 {% endblock %}

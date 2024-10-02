@@ -6,7 +6,7 @@
 <p>Username: {{ user.username }}</p>
 <p>Email: {{ user.email }}</p>
 <p>Role: {{ user.role }}</p>
-{% if current_user.role==officer %}
+{% if current_user.role!='officer' %}
     <h3>Your Owned Land</h3>
     <ul>
         {% for land in lands %}
