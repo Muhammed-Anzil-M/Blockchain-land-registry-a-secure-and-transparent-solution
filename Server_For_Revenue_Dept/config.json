@@ -1,0 +1,8 @@
+{
+    "Ganache_Url": "http://127.0.0.1:7545",
+    "NETWORK_CHAIN_ID": 1337,
+    "Mongo_Db_Url": "mongodb://localhost:27017",
+    "Secret_Key": "metamaskANZIL",
+    "Address_Used_To_Deploy_Contract": "0x8A2abff7326De00009e88731483177f9D00425c9",
+    "Admin_Password": "12345678"
+}
